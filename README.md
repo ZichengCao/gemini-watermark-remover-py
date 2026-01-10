@@ -57,20 +57,7 @@ cd gemini-watermarkRemover-py
 pip install -r requirements.txt
 ```
 
-3. **下载背景图资源**
-
-由于背景图资源文件较大，需要单独下载：
-
-```bash
-# 从原项目下载背景图
-# https://github.com/journey-ad/gemini-watermark-remover
-```
-
-将下载的背景图文件放置到 `assets/gemini_watermark/` 目录：
-- `bg_48.png`
-- `bg_96.png`
-
-4. **运行程序**
+3. **运行程序**
 
 ```bash
 python main.py

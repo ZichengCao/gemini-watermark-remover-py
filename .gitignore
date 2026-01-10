@@ -148,5 +148,4 @@ Thumbs.db
 desktop.ini
 
 # Project specific
-assets/gemini_watermark/bg_*.png
 !assets/gemini_watermark/.gitkeep

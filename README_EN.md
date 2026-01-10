@@ -57,20 +57,7 @@ cd gemini-watermarkRemover-py
 pip install -r requirements.txt
 ```
 
-3. **Download background image resources**
-
-Due to the large size of background image files, they need to be downloaded separately:
-
-```bash
-# Download background images from the original project
-# https://github.com/journey-ad/gemini-watermark-remover
-```
-
-Place the downloaded background image files in the `assets/gemini_watermark/` directory:
-- `bg_48.png`
-- `bg_96.png`
-
-4. **Run the application**
+3. **Run the application**
 
 ```bash
 python main.py
