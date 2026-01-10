@@ -30,6 +30,16 @@ PIPFILE.lock
 *.manifest
 *.spec
 
+# Build output directories
+build/
+dist/
+installer_output/
+
+# Build scripts (optional)
+# BUILD.md - 保留构建文档
+# build_installer.bat - 保留构建脚本
+installer_script.iss
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -150,3 +160,6 @@ desktop.ini
 # Project specific
 !assets/gemini_watermark/.gitkeep
 .claude
+
+BUILD.md
+build_installer.bat
