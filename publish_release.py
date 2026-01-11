@@ -6,14 +6,21 @@ GitHub Release 自动发布脚本
 使用方法：
 1. 确保 GitHub Token 已设置 (环境变量 GITHUB_TOKEN)
 2. 先运行 build_installer.bat 构建安装包
-3. 运行此脚本: python publish_release.py
+3. 先创建并推送 Git 标签（如 git tag v1.0.1 && git push origin v1.0.1）
+4. 运行此脚本: python publish_release.py
 
 环境变量：
 - GITHUB_TOKEN: GitHub 个人访问令牌 (需要 repo 权限)
+
+可选参数：
+- --version VERSION: 指定版本号（默认从 Git 标签获取）
+- --repo REPO: 指定仓库名（默认从 git remote 获取）
 """
 
 import os
 import sys
+import subprocess
+import re
 from pathlib import Path
 
 try:
@@ -24,58 +31,192 @@ except ImportError:
     sys.exit(1)
 
 
-# 版本配置
-VERSION = "v1.0.1"
-REPO_NAME = "yourusername/gemini-watermarkRemover-py"  # 修改为你的仓库
+def get_git_tag():
+    """从 Git 获取当前标签"""
+    try:
+        # 获取最近的标签
+        result = subprocess.run(
+            ['git', 'describe', '--tags', '--abbrev=0'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        tag = result.stdout.strip()
+        if tag and not tag.startswith('v'):
+            tag = f'v{tag}'
+        return tag
+    except subprocess.CalledProcessError:
+        return None
+
+
+def get_git_remote_url():
+    """从 Git remote 获取仓库信息"""
+    try:
+        result = subprocess.run(
+            ['git', 'remote', 'get-url', 'origin'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        url = result.stdout.strip()
+
+        # 解析 URL 获取 owner/repo
+        # 支持 HTTPS: https://github.com/owner/repo.git
+        # 支持 SSH: git@github.com:owner/repo.git
+        patterns = [
+            r'github\.com[/:]([^/]+)/([^/]+?)(?:\.git)?$',  # HTTPS or SSH
+            r'github\.com/([^/]+)/([^/]+)',  # HTTPS without .git
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                owner = match.group(1)
+                repo = match.group(2)
+                return f"{owner}/{repo}"
+
+        raise ValueError(f"无法解析仓库 URL: {url}")
+    except subprocess.CalledProcessError:
+        return None
+
+
+def get_release_notes(version):
+    """从 README.md 提取更新日志"""
+    readme_path = Path("README.md")
+    if not readme_path.exists():
+        return None
+
+    content = readme_path.read_text(encoding='utf-8')
+
+    # 查找对应的版本更新日志
+    # 匹配 ### v1.0.1 (2026-01-11) 到下一个 ### 之间的内容
+    pattern = rf'### {re.escape(version)}.*?\n(.*?)(?=\n### v|\Z)'
+    match = re.search(pattern, content, re.DOTALL)
+
+    if match:
+        notes = match.group(1).strip()
+        return f"## 📝 更新日志\n\n{notes}"
+
+    return None
+
+
+# 解析命令行参数
+VERSION = None
+REPO_NAME = None
+
+for i, arg in enumerate(sys.argv[1:], 1):
+    if arg == '--version' and i + 1 < len(sys.argv):
+        VERSION = sys.argv[i + 1]
+    elif arg == '--repo' and i + 1 < len(sys.argv):
+        REPO_NAME = sys.argv[i + 1]
+
+# 如果没有指定，自动获取
+if not VERSION:
+    VERSION = get_git_tag()
+    if not VERSION:
+        print("❌ 错误: 无法获取版本号")
+        print("\n请先创建 Git 标签:")
+        print("   git tag v1.0.1")
+        print("   git push origin v1.0.1")
+        print("\n或者使用 --version 参数指定:")
+        print("   python publish_release.py --version v1.0.1")
+        sys.exit(1)
+
+if not REPO_NAME:
+    REPO_NAME = get_git_remote_url()
+    if not REPO_NAME:
+        print("❌ 错误: 无法获取仓库名")
+        print("\n请使用 --repo 参数指定:")
+        print("   python publish_release.py --repo owner/repo")
+        sys.exit(1)
 
 # Release 信息
 RELEASE_TITLE = f"Gemini Watermark Remover {VERSION}"
-RELEASE_NOTES = f"""## 🎉 {VERSION} 更新内容
 
-### ⚡ 新功能
-- **实时监控** - 新增实时文件监控功能，自动处理目录中新下载的 Gemini 图片
-- **自动归档** - 处理后的原始文件自动归档到 `Gemini Watermark Remover Archive` 文件夹
-- **智能监听** - 支持文件创建和重命名事件，兼容浏览器下载场景
-- **配置持久化** - 自动保存监控目录配置，重启后自动恢复
-- **页面导航** - 添加顶部导航栏，支持批量处理和实时监控页面切换
+# 尝试从 README 读取更新日志，否则使用默认内容
+release_notes_content = get_release_notes(VERSION)
 
-### 🐛 Bug 修复
-- 修复监控死循环问题，输出文件重命名为 `Clean_` 前缀
-- 优化文件处理延迟机制
+if release_notes_content:
+    # 简化的 Release Notes
+    RELEASE_NOTES = f"""## 🎉 {VERSION} 发布
 
-### ⚙️ 技术更新
-- 新增 `watchdog` 库用于文件系统监控
-
-### 📦 下载
-- Windows: `GeminiWatermarkRemover-Setup.exe`
-- 源代码: 请克隆本仓库
+{release_notes_content}
 
 ---
-
-## 📖 使用说明
-
-### 批量处理模式
-1. 启动程序，切换到「批量处理」标签
-2. 拖拽带水印的图片到窗口
-3. 配置输出参数（可选）
-4. 点击「开始处理」
-
-### 实时监控模式
-1. 切换到「实时监控」标签
-2. 选择要监控的目录
-3. 打开监控开关
-4. 下载新图片，自动处理
-
----
-
-## ⚠️ 注意事项
-
-- 本工具仅限移除 Gemini AI 生成图片的水印
-- 请勿用于非法用途
-- 仅供学习和个人使用
 
 Full Changelog: https://github.com/{REPO_NAME}/compare/v1.0.0...{VERSION}
 """
+else:
+    RELEASE_NOTES = f"""## 🎉 Gemini Watermark Remover {VERSION}
+
+Release {VERSION} 已发布！
+
+详细更新日志请查看 [README](https://github.com/{REPO_NAME}/blob/master/README.md)。
+
+Full Changelog: https://github.com/{REPO_NAME}/compare/v1.0.0...{VERSION}
+"""
+
+
+def get_built_version():
+    """获取已构建的版本号"""
+    dist_dir = Path("dist")
+    if not dist_dir.exists():
+        return None
+
+    # 查找 exe 文件
+    exe_files = list(dist_dir.glob("GeminiWatermarkRemover_*.exe"))
+    if not exe_files:
+        return None
+
+    # 从文件名提取版本号: GeminiWatermarkRemover_1.0.1.exe
+    import re
+    for exe in exe_files:
+        match = re.search(r'GeminiWatermarkRemover_([\d.]+)\.exe$', exe.name)
+        if match:
+            return match.group(1)
+
+    return None
+
+
+def check_build_version():
+    """检查构建版本是否匹配当前标签"""
+    current_version = VERSION.lstrip('v')
+    built_version = get_built_version()
+
+    if not built_version:
+        print(f"⚠️  未找到构建文件")
+        return False
+
+    if built_version != current_version:
+        print(f"⚠️  版本不匹配:")
+        print(f"   当前标签: {VERSION}")
+        print(f"   构建版本: v{built_version}")
+        print()
+        choice = input("是否重新构建? (Y/n): ").strip().lower()
+        if choice != 'n':
+            return True  # 需要重新构建
+        else:
+            print("⚠️  使用已有构建文件继续发布...")
+            return False
+    else:
+        print(f"✅ 版本匹配: {VERSION}")
+        return False
+
+
+def build_executable():
+    """构建可执行文件"""
+    print()
+    print("=" * 50)
+    print("  开始构建")
+    print("=" * 50)
+    print()
+
+    import subprocess
+    result = subprocess.run([sys.executable, 'build.py'])
+    if result.returncode != 0:
+        print("❌ 构建失败")
+        sys.exit(1)
+    print("✅ 构建成功")
 
 
 def create_github_release():
@@ -92,13 +233,15 @@ def create_github_release():
         sys.exit(1)
 
     print(f"🔑 正在连接 GitHub...")
+    print(f"📦 版本: {VERSION}")
+    print(f"📍 仓库: {REPO_NAME}")
+    print()
 
     try:
         g = Github(token)
         repo = g.get_repo(REPO_NAME)
 
         print(f"✅ 成功连接到仓库: {REPO_NAME}")
-        print(f"📦 准备发布: {VERSION}")
         print()
 
         # 检查是否已存在该版本的 release
@@ -167,69 +310,23 @@ def create_github_release():
         sys.exit(1)
 
 
-def create_git_tag():
-    """创建 Git 标签"""
-    import subprocess
-
-    print(f"🏷️  正在创建 Git 标签: {VERSION}")
-
-    try:
-        # 检查标签是否已存在
-        result = subprocess.run(
-            ['git', 'tag', '-l', VERSION],
-            capture_output=True,
-            text=True
-        )
-
-        if VERSION in result.stdout:
-            print(f"⚠️  标签 {VERSION} 已存在")
-            choice = input("是否删除并重新创建? (y/N): ").strip().lower()
-            if choice == 'y':
-                # 删除本地标签
-                subprocess.run(['git', 'tag', '-d', VERSION], check=True)
-                # 删除远程标签
-                subprocess.run(['git', 'push', 'origin', f':refs/tags/{VERSION}'],
-                             capture_output=True)
-                print(f"🗑️  已删除旧标签")
-            else:
-                return
-
-        # 创建标签
-        subprocess.run([
-            'git', 'tag', '-a', VERSION,
-            '-m', f'Release {VERSION}'
-        ], check=True)
-
-        print(f"✅ 本地标签创建成功")
-
-        # 推送标签到远程
-        print(f"📤 正在推送标签到远程...")
-        subprocess.run(['git', 'push', 'origin', VERSION], check=True)
-        print(f"✅ 标签推送成功")
-
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Git 操作失败: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ 错误: {e}")
-        sys.exit(1)
-
-
 if __name__ == "__main__":
     print("=" * 50)
     print("  GitHub Release 自动发布工具")
     print("=" * 50)
     print()
+    print(f"📦 版本: {VERSION}")
+    print(f"📍 仓库: {REPO_NAME}")
+    print()
 
-    # 1. 创建 Git 标签
-    try:
-        create_git_tag()
+    # 检查构建版本
+    need_rebuild = check_build_version()
+
+    if need_rebuild:
+        build_executable()
         print()
-    except KeyboardInterrupt:
-        print("\n❌ 用户取消")
-        sys.exit(1)
 
-    # 2. 创建 GitHub Release
+    # 创建 GitHub Release
     try:
         create_github_release()
     except KeyboardInterrupt:

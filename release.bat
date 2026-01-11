@@ -1,6 +1,6 @@
 @echo off
 REM 一键发布脚本
-REM 功能：构建安装包 + 打 Git 标签 + 发布 GitHub Release
+REM 功能：构建安装包 + 发布 GitHub Release
 
 echo ========================================
 echo   Gemini Watermark Remover 发布工具
@@ -30,7 +30,7 @@ if %errorlevel% neq 0 (
 
 REM 步骤 1: 提交代码
 echo.
-echo [1/4] 检查 Git 状态...
+echo [1/3] 检查 Git 状态...
 git status --short
 echo.
 set /p commit_msg="请输入提交信息（留空跳过）: "
@@ -39,37 +39,28 @@ if not "%commit_msg%"=="" (
     git add -A
     git commit -m "%commit_msg%"
     echo ✅ 代码已提交
+    echo.
 )
 
 REM 步骤 2: 构建安装包
-echo.
-echo [2/4] 构建安装包...
-call build_installer.bat
+echo [2/3] 构建安装包...
+python build.py
 if %errorlevel% neq 0 (
     echo ❌ 构建失败
     pause
     exit /b 1
 )
-
-REM 步骤 3: 打标签并推送
 echo.
-echo [3/4] 创建 Git 标签...
-git tag -a v1.0.1 -m "Release v1.0.1"
-git push origin master
-git push origin v1.0.1 --force
-if %errorlevel% neq 0 (
-    echo ❌ Git 推送失败
-    pause
-    exit /b 1
-)
-echo ✅ 标签创建并推送成功
 
-REM 步骤 4: 发布到 GitHub Release
-echo.
-echo [4/4] 发布到 GitHub Release...
+REM 步骤 3: 发布到 GitHub Release
+echo [3/3] 发布到 GitHub Release...
 python publish_release.py
 if %errorlevel% neq 0 (
     echo ❌ 发布失败
+    echo.
+    echo 💡 提示: 请确保已创建并推送 Git 标签:
+    echo    git tag v1.0.1 -m "Release v1.0.1"
+    echo    git push origin v1.0.1
     pause
     exit /b 1
 )
