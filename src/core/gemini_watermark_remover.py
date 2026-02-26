@@ -32,16 +32,27 @@ class WatermarkConfig:
         self.margin_bottom = margin_bottom
 
 
-def detect_watermark_config(image_width: int, image_height: int) -> WatermarkConfig:
-    """根据图片尺寸检测水印配置
+def detect_watermark_config(image_width: int, image_height: int, watermark_config: dict = None) -> WatermarkConfig:
+    """根据图片尺寸或自定义配置检测水印配置
 
     Args:
         image_width: 图片宽度
         image_height: 图片高度
+        watermark_config: 可选的自定义配置字典 {'logo_size': int, 'margin_right': int, 'margin_bottom': int}
+                         如果为 None，则使用默认的尺寸检测规则
 
     Returns:
         WatermarkConfig 对象
     """
+    # 如果提供了自定义配置，使用自定义配置
+    if watermark_config is not None:
+        return WatermarkConfig(
+            logo_size=watermark_config['logo_size'],
+            margin_right=watermark_config['margin_right'],
+            margin_bottom=watermark_config['margin_bottom']
+        )
+
+    # 默认：根据图片尺寸检测配置（大尺寸图片用大水印）
     if image_width > 1024 and image_height > 1024:
         return WatermarkConfig(logo_size=96, margin_right=64, margin_bottom=64)
     else:
@@ -258,11 +269,13 @@ class GeminiWatermarkRemover(QObject):
 
         return output_path
 
-    def remove_from_image(self, image: Image.Image) -> Image.Image:
+    def remove_from_image(self, image: Image.Image, watermark_config: dict = None) -> Image.Image:
         """从 PIL Image 对象中移除水印
 
         Args:
             image: PIL Image 对象
+            watermark_config: 可选的自定义水印配置字典 {'logo_size': int, 'margin_right': int, 'margin_bottom': int}
+                             如果为 None，则使用默认的尺寸检测规则
 
         Returns:
             移除水印后的 PIL Image 对象
@@ -276,8 +289,8 @@ class GeminiWatermarkRemover(QObject):
         # 转换为 numpy 数组进行处理
         image_array = np.array(image).astype(np.float32)
 
-        # 检测水印配置
-        config = detect_watermark_config(width, height)
+        # 检测水印配置（传入自定义配置或使用默认检测）
+        config = detect_watermark_config(width, height, watermark_config)
 
         # 计算水印位置
         position = calculate_watermark_position(width, height, config)
@@ -355,13 +368,15 @@ class GeminiWatermarkThread(QThread):
         image_files: list,
         output_dir: str,
         output_format: Optional[str] = None,
-        quality: int = 95
+        quality: int = 95,
+        watermark_config: Optional[dict] = None
     ):
         super().__init__()
         self.image_files = image_files
         self.output_dir = output_dir
         self.output_format = output_format
         self.quality = quality
+        self.watermark_config = watermark_config
 
         self.mutex = QMutex()
         self.wait_condition = QWaitCondition()
@@ -445,8 +460,8 @@ class GeminiWatermarkThread(QThread):
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
 
-                    # 移除水印
-                    result_img = self.remover.remove_from_image(img)
+                    # 移除水印（传入水印配置）
+                    result_img = self.remover.remove_from_image(img, self.watermark_config)
 
                     # 关闭原始图片
                     img.close()

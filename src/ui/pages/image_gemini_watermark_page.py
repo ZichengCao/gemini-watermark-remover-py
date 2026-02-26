@@ -123,7 +123,8 @@ class ImageGeminiWatermarkPage(QWidget):
             image_files,
             output_dir,
             params['output_format'],
-            params['quality']
+            params['quality'],
+            params['watermark_config']
         )
         self.thread.progress.connect(self.progress_bar.setValue)
         self.thread.status.connect(lambda s: self.status_label.setText(s))
