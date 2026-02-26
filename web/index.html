@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Watermark Remover - 在线工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .settings {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .setting-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-label {
+            font-weight: 600;
+            color: #444;
+            min-width: 100px;
+        }
+
+        .watermark-mode {
+            display: flex;
+            gap: 15px;
+        }
+
+        .mode-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .mode-option input[type="radio"] {
+            cursor: pointer;
+        }
+
+        .custom-inputs {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .custom-inputs.hidden {
+            display: none;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .input-group input {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .preview-area {
+            margin: 30px 0;
+            display: none;
+        }
+
+        .preview-area.active {
+            display: block;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .preview-item {
+            text-align: center;
+        }
+
+        .preview-item h3 {
+            margin-bottom: 15px;
+            color: #444;
+            font-size: 1.1em;
+        }
+
+        .preview-item canvas {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #555;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .processing {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .processing.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-box h4 {
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #555;
+        }
+
+        .info-box li {
+            margin: 5px 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .preview-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .setting-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .custom-inputs {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✨ Gemini Watermark Remover</h1>
+        <p class="subtitle">在线移除 Gemini AI 生成图片的水印</p>
+
+        <div class="info-box">
+            <h4>💡 支持的图片</h4>
+            <ul>
+                <li>Gemini AI 生成的图片（右下角有 Gemini logo 水印）</li>
+                <li>支持 PNG, JPEG, WEBP 格式</li>
+                <li>完全在浏览器处理，图片不会上传到服务器</li>
+            </ul>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击或拖拽图片到这里</div>
+            <div class="upload-hint">支持 PNG, JPEG, WEBP 格式</div>
+        </div>
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp">
+
+        <div class="settings" id="settings" style="display: none;">
+            <div class="setting-row">
+                <span class="setting-label">水印大小</span>
+                <div class="watermark-mode">
+                    <label class="mode-option">
+                        <input type="radio" name="watermarkMode" value="large" checked>
+                        大水印 (96px)
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="watermarkMode" value="small">
+                        小水印 (48px)
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="watermarkMode" value="custom">
+                        自定义
+                    </label>
+                </div>
+            </div>
+
+            <div class="custom-inputs hidden" id="customInputs">
+                <div class="input-group">
+                    <label>水印尺寸:</label>
+                    <input type="number" id="logoSize" value="48" min="16" max="256">
+                </div>
+                <div class="input-group">
+                    <label>右边距:</label>
+                    <input type="number" id="marginRight" value="32" min="0" max="200">
+                </div>
+                <div class="input-group">
+                    <label>下边距:</label>
+                    <input type="number" id="marginBottom" value="32" min="0" max="200">
+                </div>
+            </div>
+        </div>
+
+        <div class="processing" id="processing">
+            <div class="spinner"></div>
+            <p>正在处理图片...</p>
+        </div>
+
+        <div class="preview-area" id="previewArea">
+            <div class="preview-grid">
+                <div class="preview-item">
+                    <h3>原始图片</h3>
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+                <div class="preview-item">
+                    <h3>处理后</h3>
+                    <canvas id="resultCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button class="btn btn-secondary" id="resetBtn">重新选择</button>
+                <button class="btn btn-primary" id="downloadBtn">下载图片</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="alpha_maps.js"></script>
+    <script src="watermark-remover.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
